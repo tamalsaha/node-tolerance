@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -74,7 +75,12 @@ func useKubebuilderClient() error {
 	return nil
 }
 
-func calNodeMap(list core.NodeList, taintKey string) (map[string]core.ResourceList, error) {
+type NodeGroup struct {
+	Value    string
+	Capacity core.ResourceList `json:"capacity,omitempty"`
+}
+
+func calNodeMap(list core.NodeList, taintKey string) ([]NodeGroup, error) {
 	groups := map[string]core.ResourceList{}
 	taintedNode := map[string]string{}
 
@@ -85,7 +91,7 @@ func calNodeMap(list core.NodeList, taintKey string) (map[string]core.ResourceLi
 				if !found {
 					groups[taint.Value] = node.Status.Capacity
 					taintedNode[taint.Value] = node.Name
-				} else if !equalsComputeResource(curResources, node.Status.Capacity) {
+				} else if cmpComputeResources(curResources, node.Status.Capacity) != 0 {
 					return nil, fmt.Errorf("taint %s=%s includes nodes with unequal resource capacity, %s[%+v] and %s[%+v]",
 						taintKey, taint.Value,
 						taintedNode[taint.Value], curResources,
@@ -95,17 +101,29 @@ func calNodeMap(list core.NodeList, taintKey string) (map[string]core.ResourceLi
 			}
 		}
 	}
-	return groups, nil
+
+	result := make([]NodeGroup, 0, len(groups))
+	for groupName, resources := range groups {
+		result = append(result, NodeGroup{
+			Value:    groupName,
+			Capacity: resources,
+		})
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return cmpComputeResources(result[i].Capacity, result[j].Capacity) < 0
+	})
+
+	return result, nil
 }
 
-func equalsComputeResource(a, b core.ResourceList) bool {
+func cmpComputeResources(a, b core.ResourceList) int {
 	cpuA := a[core.ResourceCPU]
 	cpuB := b[core.ResourceCPU]
-	if !cpuA.Equal(cpuB) {
-		return false
+	if result := cpuA.Cmp(cpuB); result != 0 {
+		return result
 	}
 
 	memA := a[core.ResourceMemory]
 	memB := b[core.ResourceMemory]
-	return memA.Equal(memB)
+	return memA.Cmp(memB)
 }
