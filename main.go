@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -58,10 +59,30 @@ func useKubebuilderClient() error {
 		return err
 	}
 
-	return calNodeMap(list)
-}
+	taintKey := "kubedb.com/autoscaling-group"
+	groups, err := calNodeMap(list, taintKey)
+	if err != nil {
+		return err
+	}
 
-func calNodeMap(list core.NodeList) error {
+	for groupName, resources := range groups {
+		fmt.Println(taintKey, groupName)
+		fmt.Println(resources)
+		fmt.Println("---------------------------")
+	}
 
 	return nil
+}
+
+func calNodeMap(list core.NodeList, taintKey string) (map[string]core.ResourceList, error) {
+	groups := map[string]core.ResourceList{}
+
+	for _, node := range list.Items {
+		for _, taint := range node.Spec.Taints {
+			if taint.Key == taintKey {
+				groups[taint.Value] = node.Status.Capacity
+			}
+		}
+	}
+	return groups, nil
 }
