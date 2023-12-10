@@ -76,7 +76,7 @@ func useKubebuilderClient() error {
 }
 
 type NodeGroup struct {
-	Value    string
+	Name     string            `json:"name"`
 	Capacity core.ResourceList `json:"capacity,omitempty"`
 }
 
@@ -105,7 +105,7 @@ func calNodeMap(list core.NodeList, taintKey string) ([]NodeGroup, error) {
 	result := make([]NodeGroup, 0, len(groups))
 	for groupName, resources := range groups {
 		result = append(result, NodeGroup{
-			Value:    groupName,
+			Name:     groupName,
 			Capacity: resources,
 		})
 	}
