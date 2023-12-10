@@ -76,13 +76,36 @@ func useKubebuilderClient() error {
 
 func calNodeMap(list core.NodeList, taintKey string) (map[string]core.ResourceList, error) {
 	groups := map[string]core.ResourceList{}
+	taintedNode := map[string]string{}
 
 	for _, node := range list.Items {
 		for _, taint := range node.Spec.Taints {
 			if taint.Key == taintKey {
-				groups[taint.Value] = node.Status.Capacity
+				curResources, found := groups[taint.Value]
+				if !found {
+					groups[taint.Value] = node.Status.Capacity
+					taintedNode[taint.Value] = node.Name
+				} else if !equalsComputeResource(curResources, node.Status.Capacity) {
+					return nil, fmt.Errorf("taint %s=%s includes nodes with unequal resources, %s[%+v] and %s[%+v]",
+						taintKey, taint.Value,
+						taintedNode[taint.Value], curResources,
+						node.Name, node.Status.Capacity,
+					)
+				}
 			}
 		}
 	}
 	return groups, nil
+}
+
+func equalsComputeResource(a, b core.ResourceList) bool {
+	cpuA := a[core.ResourceCPU]
+	cpuB := b[core.ResourceCPU]
+	if !cpuA.Equal(cpuB) {
+		return false
+	}
+
+	memA := a[core.ResourceMemory]
+	memB := b[core.ResourceMemory]
+	return memA.Equal(memB)
 }
