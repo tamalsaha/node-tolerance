@@ -86,7 +86,7 @@ func calNodeMap(list core.NodeList, taintKey string) (map[string]core.ResourceLi
 					groups[taint.Value] = node.Status.Capacity
 					taintedNode[taint.Value] = node.Name
 				} else if !equalsComputeResource(curResources, node.Status.Capacity) {
-					return nil, fmt.Errorf("taint %s=%s includes nodes with unequal resources, %s[%+v] and %s[%+v]",
+					return nil, fmt.Errorf("taint %s=%s includes nodes with unequal resource capacity, %s[%+v] and %s[%+v]",
 						taintKey, taint.Value,
 						taintedNode[taint.Value], curResources,
 						node.Name, node.Status.Capacity,
