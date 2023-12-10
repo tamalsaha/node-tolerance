@@ -112,7 +112,6 @@ func calNodeMap(list core.NodeList, taintKey string) ([]NodeGroup, error) {
 	sort.Slice(result, func(i, j int) bool {
 		return cmpComputeResources(result[i].Capacity, result[j].Capacity) < 0
 	})
-
 	return result, nil
 }
 
